@@ -2,6 +2,8 @@
 global_gun_item = 'crossbow';           // 持枪物品 id
                                         // 持枪物品的 NBT 数据, 用于判断是否为持枪物品
 global_gun_nbt = '{id:"minecraft:crossbow", components:{"minecraft:custom_data":{"buckshot_roullete":1b}}}';
+                                        // 用于标记道具展示实体的 tag
+global_br_entity_tag = 'buckshot_roulette';
 global_max_health = 5;                  // 每人最大生命值
 global_start_health = 4;                // 每人初始生命值
 global_bullet_range = range(4, 9);      // 子弹数范围 [min, max)
@@ -31,7 +33,9 @@ __config() -> {
         // 注意: 'players' 类型返回的是玩家名字字符串, 这里需要的是实体。
         'first_player' -> {'type' -> 'players', 'single' -> true},
         'second_player' -> {'type' -> 'players', 'single' -> true},
-        'arg' -> {'type' -> 'text', 'options' -> ['show_consumables_panel', 'close_consumables_panel', 'add_all_consumables']},
+        'arg' -> {'type' -> 'text', 'options' -> 
+         ['show_consumables_panel', 'close_consumables_panel', 'add_all_consumables',
+          'clear_all_entities']},
         'consumable_id' -> {'type' -> 'term', 'options' -> global_consumable_ids}
     }
 };
@@ -137,6 +141,13 @@ br_test(arg) -> (
         for (global_consumable_ids,
             add_consumable(player, _);
         ),
+    arg == 'clear_all_entities',
+        c = 0;
+        for (entity_selector('@e[tag=' + global_br_entity_tag + ']'),
+            modify(_, 'kill');
+            c += 1;
+        );
+        print(player(), format('c 已清除 ' + c + ' 个游戏内实体')),
     // else
         print(player(), format('c 未知测试参数: ' + arg));
     );
@@ -361,6 +372,8 @@ spawn_consumable_entity(name, pos, rot) -> (
      '"}, interpolation_duration:0.5f, transformation:{right_rotation:{angle:', rot_rad,
      'f, axis:[0f, 1f, 0f]},scale:[0.5f, 0.5f, 0.5f], left_rotation:{angle:0f, axis:[0f, 1f, 0f]}, translation:[0f, 0f, 0f]}}'));
     ei = spawn('interaction', pos - [0, 0.2, 0], concat('{width:0.4f, height:0.4f, response:1b}'));
+    modify(ed, 'tag', global_br_entity_tag);
+    modify(ei, 'tag', global_br_entity_tag);
     return([ed, ei]);
 );
 
