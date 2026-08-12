@@ -34,7 +34,7 @@ __config() -> {
         // 注意: 'players' 类型返回的是玩家名字字符串, 这里需要的是实体。
         'first_player' -> {'type' -> 'players', 'single' -> true},
         'second_player' -> {'type' -> 'players', 'single' -> true},
-        'start_health' -> {'type' -> 'int', 'min' -> 1, 'max' -> global_max_health},
+        'start_health' -> {'type' -> 'int', 'min' -> 1, 'max' -> global_max_health, 'suggest' -> [global_start_health]},
         'arg' -> {'type' -> 'text', 'options' -> 
          ['show_consumables_panel', 'close_consumables_panel', 'add_all_consumables',
           'clear_all_entities']},
