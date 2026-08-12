@@ -1,7 +1,7 @@
 // ---------------- 可调参数 ----------------
 global_gun_item = 'crossbow';           // 持枪物品 id
                                         // 持枪物品的 NBT 数据, 用于判断是否为持枪物品
-global_gun_nbt = '{id:"minecraft:crossbow", components:{"minecraft:custom_data":{"buckshot_roullete":1b}}}';
+global_gun_nbt = '{id:"minecraft:crossbow", components:{"minecraft:custom_data":{"buckshot_roulette":1b}}}';
                                         // 用于标记道具展示实体的 tag
 global_br_entity_tag = 'buckshot_roulette';
 global_max_health = 5;                  // 每人最大生命值
@@ -82,8 +82,8 @@ global_handcuffs_used = false;      // 本回合是否使用过手铐
 br_help() -> (
     p = player();
     print(p, format('c ========== 恶魔轮盘赌 =========='));
-    print(p, format('w /buckshot_roullete start <对方> ', 'w - 开始对局'));
-    print(p, format('w /buckshot_roullete cancel ', 'w - 结束对局'));
+    print(p, format('w /buckshot_roulette start <对方> ', 'w - 开始对局'));
+    print(p, format('w /buckshot_roulette cancel ', 'w - 结束对局'));
     print(p, format('w 持枪时: 低头=瞄准自己, 抬头=瞄准对方, 右键开枪。'));
 );
 
@@ -284,7 +284,7 @@ get_gun_item(player) -> (
         if (i == null || i:0 != global_gun_item, continue());
         
         i_nbt = parse_nbt(i:2);
-        if (i_nbt && i_nbt:'components' && i_nbt:'components':'minecraft:custom_data' && i_nbt:'components':'minecraft:custom_data':'buckshot_roullete',
+        if (i_nbt && i_nbt:'components' && i_nbt:'components':'minecraft:custom_data' && i_nbt:'components':'minecraft:custom_data':'buckshot_roulette',
             print('Found gun in slot ' + _ + ': ' + i);
             return([i, _]);
         );
@@ -303,7 +303,7 @@ get_gun_items(player) -> (
         if (i == null || i:0 != global_gun_item, continue());
         
         i_nbt = parse_nbt(i:2);
-        if (i_nbt && i_nbt:'components' && i_nbt:'components':'minecraft:custom_data' && i_nbt:'components':'minecraft:custom_data':'buckshot_roullete',
+        if (i_nbt && i_nbt:'components' && i_nbt:'components':'minecraft:custom_data' && i_nbt:'components':'minecraft:custom_data':'buckshot_roulette',
             indexes += _;
             gun_item = i;
         );
@@ -627,7 +627,7 @@ __on_player_uses_item(player, item_tuple, hand) -> (
     // 确保玩家没有选中道具
     if (p:'last_selected_consumable_uuid' != null, return());
     gun_nbt = parse_nbt(item_tuple:2);
-    if (!gun_nbt || !gun_nbt:'components' || !gun_nbt:'components':'minecraft:custom_data' || !gun_nbt:'components':'minecraft:custom_data':'buckshot_roullete',
+    if (!gun_nbt || !gun_nbt:'components' || !gun_nbt:'components':'minecraft:custom_data' || !gun_nbt:'components':'minecraft:custom_data':'buckshot_roulette',
         return();
     );
     
@@ -644,7 +644,7 @@ __on_player_drops_item(player) -> (
     item_tuple = player~'holds';
     if (item_tuple == null || item_tuple:0 != global_gun_item, return());
     gun_nbt = parse_nbt(item_tuple:2);
-    if (!gun_nbt || !gun_nbt:'components' || !gun_nbt:'components':'minecraft:custom_data' || !gun_nbt:'components':'minecraft:custom_data':'buckshot_roullete',
+    if (!gun_nbt || !gun_nbt:'components' || !gun_nbt:'components':'minecraft:custom_data' || !gun_nbt:'components':'minecraft:custom_data':'buckshot_roulette',
         return();
     );
 
@@ -686,7 +686,7 @@ __on_tick() -> (
         target_player = null;
     );
     gun_nbt = parse_nbt(item_tuple:2);
-    if (!gun_nbt || !gun_nbt:'components' || !gun_nbt:'components':'minecraft:custom_data' || !gun_nbt:'components':'minecraft:custom_data':'buckshot_roullete',
+    if (!gun_nbt || !gun_nbt:'components' || !gun_nbt:'components':'minecraft:custom_data' || !gun_nbt:'components':'minecraft:custom_data':'buckshot_roulette',
         target_player = null;
     );
 

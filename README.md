@@ -16,7 +16,7 @@
 │  README.md
 │
 ├─minigame
-│      buckshot_roullete.sc
+│      buckshot_roulette.sc
 │      minesweeper.sc
 │      tetris2d.sc
 │
