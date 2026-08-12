@@ -6,7 +6,7 @@
 
 [Carpet 脚本官方文档](https://github.com/gnembon/fabric-carpet/tree/master/docs/scarpet)
 
-[社团 Carpet 笔记、教程、中文文档](http://mc.u.unsafe.top/published/%E6%A0%B8%E5%BF%83wiki/)
+[社团 Carpet 笔记、教程、中文文档](http://mc.u.unsafe.top/published/%E6%A0%B8%E5%BF%83wiki/)（需要[ZeroTier](https://docs.qq.com/aio/DZGZjT3FrVWpGb2Jw?p=J1YcEU19OirKepuJlKrroD)）
 
 ## 文件结构
 
