@@ -23,7 +23,8 @@ __config() -> {
     'commands' -> {
         '' -> 'br_help',
         'help' -> 'br_help',
-        'start <first_player> <second_player>' -> 'br_start',
+        'start <first_player> <second_player>' -> ['br_start', global_start_health],
+        'start <first_player> <second_player> <start_health>' -> 'br_start',
         'cancel' -> 'br_cancel',
         'test <arg>' -> 'br_test',
         'test add_consumable <consumable_id>' -> ['br_test_add_consumable', false],
@@ -33,6 +34,7 @@ __config() -> {
         // 注意: 'players' 类型返回的是玩家名字字符串, 这里需要的是实体。
         'first_player' -> {'type' -> 'players', 'single' -> true},
         'second_player' -> {'type' -> 'players', 'single' -> true},
+        'start_health' -> {'type' -> 'int', 'min' -> 1, 'max' -> global_max_health},
         'arg' -> {'type' -> 'text', 'options' -> 
          ['show_consumables_panel', 'close_consumables_panel', 'add_all_consumables',
           'clear_all_entities']},
@@ -42,6 +44,7 @@ __config() -> {
 
 // ---------------- 全局状态 ----------------
 global_game_state = 0;              // 游戏状态: 0 (idle), 1 (in progress)
+global_rounds = 0;                  // 当前对局轮数
 global_player_template = {          // 玩家对象模板
     'entity' -> null,               // scarpet 玩家对象
     'name' -> 'Name',
@@ -84,7 +87,7 @@ br_help() -> (
     print(p, format('w 持枪时: 低头=瞄准自己, 抬头=瞄准对方, 右键开枪。'));
 );
 
-br_start(first_name, second_name) -> (
+br_start(first_name, second_name, start_health) -> (
     if (first_name == second_name,
         print(player(first_name), '不能与自己对战：' + first_name + ' == ' + second_name);
         return();
@@ -97,8 +100,8 @@ br_start(first_name, second_name) -> (
     );
     global_player_entities = [first, second];
     // TODO: 随机血量
-    global_players = [create_player(first, global_start_health), create_player(second, global_start_health)];
-    
+    global_players = [create_player(first, start_health), create_player(second, start_health)];
+    global_rounds = 0;
     announce('恶魔轮盘赌对局开始！');
 
     round_start(-1);
@@ -183,7 +186,9 @@ create_player(entity, health) -> (
     return(p);
 );
 
-round_start(last_turn) -> (
+round_start(previous_turn) -> (
+    global_rounds = global_rounds + 1;
+
     slots = [];
     for (global_players,
         clear_gun_items(_);
@@ -209,9 +214,16 @@ round_start(last_turn) -> (
         give_gun_item(p, slot);
     );
     
-    // 初始化子弹，其中实弹数为三角分布随机数，至少为 1，最多为总子弹数 - 1
+    // 初始化子弹，其中实弹数为三角分布随机数，至少为 1，最多为总子弹数 - 1，并且限制前两轮的子弹上限
     // 注意此处使用 [range(expr)] 把 range 对象转换为列表，否则 rand_item 会报错
-    global_bullet_count = rand_item([global_bullet_range]);
+    range_list = [global_bullet_range];
+    if (global_rounds == 1,
+        global_bullet_count = rand_item(slice(range_list, 0, floor(length(range_list) / 3))),
+    global_rounds == 2,
+        global_bullet_count = rand_item(slice(range_list, 0, floor(length(range_list) * 2 / 3))),
+    // else
+        global_bullet_count = rand_item(range_list);
+    );
     global_real_bullet_count = triangular_rand_int(1, global_bullet_count);
     global_fake_bullet_count = global_bullet_count - global_real_bullet_count;
     global_bullets = [];
@@ -219,10 +231,27 @@ round_start(last_turn) -> (
     for (range(global_fake_bullet_count), global_bullets += false);
     shuffle(global_bullets);
 
+    if (global_rounds != 1,
+        for (global_players,
+            c1 = rand_item(global_consumable_ids);
+            c2 = rand_item(global_consumable_ids);
+            add_consumable(_, c1);
+            add_consumable(_, c2);
+            if (_:'consumables_panel' != null,
+                show_consumables_panel(_, true)
+            );
+            display_title(_:'entity', 'title',
+             format('w 你获得了：', 'c ' + get_consumable_name_by_id(c1) + '和' + get_consumable_name_by_id(c2)), 10, 40, 10);
+            another_player = global_players:(1 - _i):'entity';
+            print(another_player, format('w 对方获得了道具：',
+             'c ' + get_consumable_name_by_id(c1) + '和' + get_consumable_name_by_id(c2)));
+        );
+    );
+
     global_saw_used = false;
     global_handcuffs_used = false;
     // 若新游戏则随机决定先手玩家，否则由上回合的最后没开枪的玩家先手
-    global_current_turn = if (last_turn == -1, rand_int(2), 1 - last_turn);
+    global_current_turn = if (previous_turn == -1, rand_int(2), 1 - previous_turn);
 );
 
 get_current_player() -> (
@@ -322,24 +351,28 @@ fire(target_player, self) -> (
     return(real);
 );
 
+// 检查本轮游戏状态，若有玩家血量归零则宣布胜利并结束对局，若子弹用尽则进入下一轮
+// 返回 true 表示游戏继续，false 表示本轮结束
 check_status() -> (
     pc = get_current_player();
     pn = get_next_player();
     if (pc:'health' <= 0,
         announce(pc:'name' + ' 血量归零，' + pn:'name' + ' 获胜！');
         br_cancel();
-        return(),
+        return(false),
     pn:'health' <= 0,
         announce(pn:'name' + ' 血量归零，' + pc:'name' + ' 获胜！');
         br_cancel();
-        return();
+        return(false);
     );
     
     if (length(global_bullets) == 0,
         announce('本轮子弹已用尽，重新装弹！');
         round_start(global_current_turn);
-        return();
+        return(false);
     );
+
+    return(true);
 );
 
 switch_turns(current_player, target_player, real) -> (
@@ -435,7 +468,7 @@ add_consumable(player, id) -> (
 
     c:'id' = id;
     player:'consumables' += c;
-    print(p, concat('添加道具：', get_consumable_name_by_id(id), ' (Index: ', c:'index', ')'));
+    // print(p, concat('添加道具：', get_consumable_name_by_id(id), ' (Index: ', c:'index', ')'));
 );
 
 get_consumable_name_by_id(id) -> (
@@ -467,33 +500,48 @@ get_selected_consumable(player) -> (
 
 use_consumable(player, consumable, next_player) -> (
     p = player:'entity';
-    call('use_consumable_' + consumable:'id', player, consumable);
+    success = call('use_consumable_' + consumable:'id', player, consumable);
+    if (!success, return(false));
+    // 使用道具后从玩家的 consumables 列表中删除该道具，并更新面板
     player:'consumables' = filter(player:'consumables', _:'index' != consumable:'index');
     show_consumables_panel(player, true);
-    print(next_player:'entity', concat('对方使用了道具：', get_consumable_name_by_id(consumable:'id')));
+    print(next_player:'entity', format('w 对方使用了道具：', 'c ' + get_consumable_name_by_id(consumable:'id')));
     // print(p, concat('使用道具：', get_consumable_name_by_id(consumable:'id'), ' (Index: ', consumable:'index', ')'));
+    return(true);
 );
 
 // -------------- 道具使用函数 --------------
 use_consumable_magnifier(player, consumable) -> (
     sound('minecraft:block.glass.break', player:'entity'~'pos');
     display_title(player:'entity', 'title', format('w 当前子弹状态：', if(global_bullets:0, 'r 实弹', 'c 空弹')), 10, 40, 10);
+    return(true);
 );
 
 use_consumable_saw(player, consumable) -> (
+    if (global_saw_used,
+        print(player:'entity', 'c 本回合已使用过手锯道具，无法再次使用');
+        return(false);
+    );
     sound('minecraft:block.beehive.shear', player:'entity'~'pos');
     global_saw_used = true;
+    return(true);
 );
 
 use_consumable_beer(player, consumable) -> (
     sound('minecraft:entity.generic.drink', player:'entity'~'pos');
     display_title(global_player_entities, 'title', format('w ' + player:'name' + '退出一枚：', if(global_bullets:0, 'r 实弹', 'c 空弹')), 10, 40, 10);
     delete(global_bullets, 0);
+    return(true);
 );
 
 use_consumable_handcuffs(player, consumable) -> (
+    if (global_handcuffs_used,
+        print(player:'entity', 'c 本回合已使用过手铐道具，无法再次使用');
+        return(false);
+    );
     sound('minecraft:block.chain.break', player:'entity'~'pos');
     global_handcuffs_used = true;
+    return(true);
 );
 
 use_consumable_phone(player, consumable) -> (
@@ -501,13 +549,19 @@ use_consumable_phone(player, consumable) -> (
     i = rand_int(length(global_bullets));
     display_title(player:'entity', 'title', format('w 第', 'c ' + (i + 1),
      'w 枚子弹将会是：', if(global_bullets:i, 'r 实弹', 'c 空弹')), 10, 40, 10);
+    return(true);
 );
 
 use_consumable_adrenaline(player, consumable) -> (
+    if (player:'health' >= global_max_health,
+        print(player:'entity', 'c 你的血量已满，无法使用肾上腺素道具');
+        return(false);
+    );
     sound('minecraft:entity.player.levelup', player:'entity'~'pos');
     player:'health' = min(player:'health' + 1, global_max_health);
     // 假装开了枪一样切换回合，如果后面要在 switch_turns 添加其他判断可能需要修改这里的脏逻辑
     switch_turns(player, player, true);
+    return(true);
 );
 
 // --------------- 工具函数 ----------------
@@ -579,8 +633,10 @@ __on_player_uses_item(player, item_tuple, hand) -> (
     
     target_player = get_target(p, get_next_player());
     real = fire(target_player, p);
-    check_status();
-    switch_turns(p, target_player, real);
+    // 仅当本轮游戏继续时才切换回合，防止连续切换两次
+    if (check_status(),
+        switch_turns(p, target_player, real);
+    );
 );
 
 __on_player_drops_item(player) -> (
@@ -610,6 +666,11 @@ __on_player_interacts_with_entity(player, entity, hand) -> (
     for (p:'consumables',
         if (_:'interaction'~'id' == entity~'id',
             use_consumable(p, _, get_next_player());
+            
+            if (length(global_bullets) == 0,
+                announce('本轮子弹已用尽，重新装弹！');
+                round_start(global_current_turn);
+            );
             break();
         );
     );
